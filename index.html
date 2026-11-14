@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DIDDS — PT RJS Inventory Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#EEF5FF',
+              100: '#DCEAFE',
+              200: '#BDD6FE',
+              500: '#1D72FA',
+              600: '#1565F5',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --sidebar-active: linear-gradient(90deg, #1E78FF 0%, #1565F5 100%);
+      --canvas-bg: #F6F8FB;
+      --card-border: #E8EEF5;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background-color: var(--canvas-bg);
+      color: #0F172A;
+    }
+
+    .sidebar-panel {
+      background: linear-gradient(180deg, #09213A 0%, #071A2F 100%);
+      transition: width 0.25s ease, transform 0.25s ease;
+    }
+
+    .nav-item-active {
+      background: var(--sidebar-active);
+      box-shadow: 0 8px 20px -4px rgba(29, 114, 250, 0.45);
+      color: #FFFFFF !important;
+    }
+
+    .card-surface {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.025);
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #257BFF 0%, #1565F5 100%);
+      box-shadow: 0 4px 12px rgba(29, 114, 250, 0.28);
+      transition: all 0.15s ease;
+    }
+    .btn-primary:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      transition: all 0.15s ease;
+    }
+    .btn-outline:hover {
+      background: #F8FAFC;
+      border-color: #CBD5E1;
+    }
+
+    @keyframes barRiseUp {
+      0% {
+        transform: scaleY(0);
+        opacity: 0.25;
+      }
+      100% {
+        transform: scaleY(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes lineReveal {
+      0% {
+        stroke-dashoffset: 1400;
+        opacity: 0.2;
+      }
+      100% {
+        stroke-dashoffset: 0;
+        opacity: 1;
+      }
+    }
+
+    @keyframes markerFadeIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.5);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .svg-bar-animated {
+      transform-box: fill-box;
+      transform-origin: bottom center;
+      animation: barRiseUp 0.72s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+
+    .svg-line-animated {
+      stroke-dasharray: 1400;
+      animation: lineReveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+
+    .svg-marker-animated {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: markerFadeIn 0.45s ease backwards;
+    }
+
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: #F1F5F9; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+    #chartTooltip {
+      pointer-events: none;
+      transition: opacity 0.12s ease, transform 0.12s ease;
+    }
+  </style>
+</head>
+<body class="antialiased overflow-x-hidden">
+
+  <div class="min-h-screen flex">
+    <aside id="sidebar" class="sidebar-panel w-[260px] shrink-0 text-white flex flex-col justify-between fixed inset-y-0 left-0 z-40 lg:static">
+      <div>
+        <div class="px-5 pt-6 pb-7 flex items-center gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center shadow-lg shadow-blue-500/30 shrink-0">
+            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="3" y="3" width="8" height="8" rx="2"></rect>
+              <rect x="13" y="3" width="8" height="5" rx="1.8"></rect>
+              <rect x="3" y="13" width="8" height="8" rx="2"></rect>
+              <rect x="13" y="10" width="8" height="11" rx="2"></rect>
+            </svg>
+          </div>
+          <div class="sidebar-text">
+            <div class="text-[19px] font-bold tracking-tight leading-tight">DIDDS</div>
+            <div class="text-[11px] font-medium text-[#7E97B4] tracking-wide">PT RJS</div>
+          </div>
+        </div>
+
+        <div class="px-4">
+          <div class="px-3 mb-2.5 text-[11px] font-semibold tracking-wider text-[#5C7896] uppercase sidebar-text">
+            WORKSPACE
+          </div>
+
+          <nav class="space-y-1.5" id="sidebarNav">
+            <button type="button" data-page="dashboard" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-medium text-[#A2B6CC] hover:bg-white/5 transition text-left">
+              <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+              </svg>
+              <span class="sidebar-text truncate">Dashboard</span>
+            </button>
+
+            <button type="button" data-page="inventory" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-medium text-[#A2B6CC] hover:bg-white/5 transition text-left">
+              <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/>
+              </svg>
+              <span class="sidebar-text truncate">Inventory</span>
+            </button>
+
+            <button type="button" data-page="forecasting" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-medium text-[#A2B6CC] hover:bg-white/5 transition text-left">
+              <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m7 14 4-4 4 3 5-6"/>
+              </svg>
+              <span class="sidebar-text leading-tight">Forecasting &amp; Replenishment</span>
+            </button>
+
+            <button type="button" data-page="reports" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-medium text-[#A2B6CC] hover:bg-white/5 transition text-left">
+              <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 17v-5M13 17V8M18 17v-3"/>
+              </svg>
+              <span class="sidebar-text truncate">Reports &amp; Analytics</span>
+            </button>
+
+            <button type="button" data-page="settings" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-medium text-[#A2B6CC] hover:bg-white/5 transition text-left">
+              <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+              </svg>
+              <span class="sidebar-text truncate">Settings</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-white/10">
+        <button type="button" onclick="navigateTo('settings')" class="w-full flex items-center justify-between px-2 py-2 rounded-xl hover:bg-white/5 transition">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-[#243E59] flex items-center justify-center text-xs font-bold text-white shrink-0">AM</div>
+            <div class="text-left sidebar-text">
+              <div class="text-[13.5px] font-semibold text-white leading-tight">Alex Morgan</div>
+              <div class="text-[11.5px] text-[#7E97B4]">Administrator</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-[#7E97B4] sidebar-text" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-slate-900/40 z-30 hidden lg:hidden" onclick="toggleSidebar(false)"></div>
+
+    <div class="flex-1 flex flex-col min-w-0">
+
+      <header class="h-[72px] bg-white border-b border-[#EAEEF4] px-5 lg:px-7 flex items-center justify-between gap-4 sticky top-0 z-20">
+        <div class="flex items-center gap-3.5 flex-1 max-w-xl">
+          <button type="button" onclick="toggleSidebar()" title="Toggle Menu" class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+
+          <div class="relative flex-1">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.3-4.3"/>
+            </svg>
+            <input
+              id="globalSearchInput"
+              type="text"
+              placeholder="Search products, item codes, or locations..."
+              class="w-full h-10 pl-10 pr-4 text-[13.5px] bg-white border border-slate-200/90 rounded-xl text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 transition"
+            />
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 sm:gap-3">
+          <div class="hidden sm:flex items-center gap-2 h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-[13px] font-medium text-slate-700">
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+            </svg>
+            <span>Nov 13, 2026</span>
+          </div>
+
+          <div class="relative">
+            <button type="button" onclick="toggleNotificationMenu()" class="w-10 h-10 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 transition relative">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white absolute top-2.5 right-2.5"></span>
+            </button>
+
+            <div id="notificationDropdown" class="hidden absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 z-50">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-sm font-bold text-slate-800">Status Inventaris</span>
+                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">100% Aman</span>
+              </div>
+              <div class="space-y-2.5 text-xs">
+                <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <div class="font-semibold text-emerald-800">Tidak Ada Produk Stockout (0 SKU)</div>
+                  <div class="text-emerald-700/90 mt-0.5">Seluruh 108 SKU aman dan Rp 0 lost sales.</div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-blue-50 border border-blue-100">
+                  <div class="font-semibold text-blue-800">Preventive Order: <span id="notifRecSummary">28 Produk</span></div>
+                  <div class="text-blue-700/90 mt-0.5">Total saran order terhubung dengan Forecasting &amp; Parameters.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" onclick="navigateTo('settings')" class="flex items-center gap-2.5 pl-1.5 pr-2 py-1 rounded-xl hover:bg-slate-50 transition">
+            <div class="w-9 h-9 rounded-full bg-brand-100 text-brand-600 font-bold text-xs flex items-center justify-center">AM</div>
+            <div class="hidden md:block text-left">
+              <div class="text-[13px] font-semibold text-slate-800 leading-tight">Alex Morgan</div>
+              <div class="text-[11px] text-slate-400 leading-tight">Admin</div>
+            </div>
+            <svg class="w-4 h-4 text-slate-400 hidden md:block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="flex-1 p-5 lg:p-7 max-w-[1440px] w-full mx-auto">
+
+        <section id="page-dashboard" class="page-section space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 class="text-[28px] font-bold tracking-tight text-slate-900 leading-tight">Dashboard</h1>
+              <p class="text-[14px] text-slate-500 mt-1">Monitor inventory health, demand trends, and order recommendations.</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button type="button" onclick="exportDashboardCSV()" class="btn-outline h-10 px-4 rounded-xl text-[13.5px] font-semibold text-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" d="M3 3v18h18M8 17v-5M13 17V8M18 17v-3"/>
+                </svg>
+                Export report
+              </button>
+              <button type="button" onclick="openUploadModal()" class="btn-primary h-10 px-4 rounded-xl text-[13.5px] font-semibold text-white flex items-center gap-2">
+                Update Data
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+            <div class="card-surface p-5">
+              <div class="flex items-start justify-between">
+                <div class="w-11 h-11 rounded-xl bg-blue-50 text-brand-500 flex items-center justify-center">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                    <rect x="4" y="4" width="6" height="6" rx="1"/>
+                    <rect x="14" y="4" width="6" height="6" rx="1"/>
+                    <rect x="9" y="14" width="6" height="6" rx="1"/>
+                  </svg>
+                </div>
+                <span class="text-[11px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full" id="kpiTotalSkuPill">108 SKU</span>
+              </div>
+              <div class="mt-4 text-[13px] font-medium text-slate-500">Total Stock</div>
+              <div class="mt-1 flex items-baseline gap-2">
+                <span id="kpiTotalStock" class="text-[30px] font-bold tracking-tight text-slate-900">0</span>
+                <span class="text-[13px] text-slate-400 font-medium">unit</span>
+              </div>
+              <div class="mt-2.5 flex items-center gap-1.5 text-[12.5px]">
+                <span class="text-emerald-600 font-semibold">↗ live</span>
+                <span class="text-slate-400">dari 108 SKU inventori</span>
+              </div>
+            </div>
+
+            <div class="card-surface p-5">
+              <div class="flex items-start justify-between">
+                <div class="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m4 16 5-5 4 4 7-7"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 8h5v5"/>
+                  </svg>
+                </div>
+                <button type="button" class="text-slate-400 px-1">•••</button>
+              </div>
+              <div class="mt-4 text-[13px] font-medium text-slate-500">Today's Demand</div>
+              <div class="mt-1 flex items-baseline gap-2">
+                <span id="kpiTotalDemand" class="text-[30px] font-bold tracking-tight text-slate-900">0</span>
+                <span class="text-[13px] text-slate-400 font-medium">unit</span>
+              </div>
+              <div class="mt-2.5 flex items-center gap-1.5 text-[12.5px]">
+                <span id="kpiForecastCompare" class="text-emerald-600 font-semibold">↗ Forecast 0 unit</span>
+                <span class="text-slate-400">selaras tren</span>
+              </div>
+            </div>
+
+            <div class="card-surface p-5">
+              <div class="flex items-start justify-between">
+                <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 2"/>
+                  </svg>
+                </div>
+                <button type="button" class="text-slate-400 px-1">•••</button>
+              </div>
+              <div class="mt-4 text-[13px] font-medium text-slate-500">Safety Stock Health</div>
+              <div class="mt-1 flex items-baseline gap-1.5">
+                <span id="kpiSafetyHealth" class="text-[30px] font-bold tracking-tight text-slate-900">100</span>
+                <span class="text-[13px] text-slate-400 font-medium">% aman</span>
+              </div>
+              <div class="mt-2.5 flex items-center gap-1.5 text-[12.5px]">
+                <span class="text-emerald-600 font-semibold">✓ 108/108 SKU</span>
+                <span class="text-slate-400">0 stockout</span>
+              </div>
+            </div>
+
+            <div onclick="navigateTo('forecasting')" class="card-surface p-5 cursor-pointer hover:border-brand-200 transition">
+              <div class="flex items-start justify-between">
+                <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                    <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2 3h3l2.4 11.2a2 2 0 0 0 2 1.6h8.7a2 2 0 0 0 2-1.5L22 7H6"/>
+                  </svg>
+                </div>
+                <button type="button" class="text-slate-400 px-1">•••</button>
+              </div>
+              <div class="mt-4 text-[13px] font-medium text-slate-500">Recommended Orders</div>
+              <div class="mt-1 flex items-baseline gap-2">
+                <span id="kpiRecOrders" class="text-[30px] font-bold tracking-tight text-slate-900">28</span>
+                <span class="text-[13px] text-slate-400 font-medium">products</span>
+              </div>
+              <div class="mt-2.5 flex items-center gap-1.5 text-[12.5px]">
+                <span id="kpiRecTotalUnits" class="text-emerald-600 font-semibold">↗ 0 unit</span>
+                <span class="text-slate-400">needs attention optimization</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div class="xl:col-span-8 card-surface p-6">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <div>
+                  <h2 class="text-[17px] font-bold text-slate-900">Demand &amp; Stock Trends</h2>
+                  <p class="text-[12.5px] text-slate-400 mt-0.5">Pergerakan total stok, demand &amp; forecast 108 SKU (dalam unit)</p>
+                </div>
+                <div class="flex items-center gap-5 text-[12px] font-medium text-slate-500">
+                  <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#BDD6FE]"></span> Stock</span>
+                  <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-brand-500"></span> Demand</span>
+                  <span class="flex items-center gap-1.5"><span class="w-3.5 h-0.5 bg-[#0D2B4E] inline-block"></span> Forecast</span>
+                </div>
+              </div>
+              <div id="dashboardChartContainer" class="relative w-full"></div>
+            </div>
+
+            <div class="xl:col-span-4 card-surface p-6 flex flex-col">
+              <div class="flex items-start justify-between mb-4">
+                <div>
+                  <h2 class="text-[17px] font-bold text-slate-900">Stock Status</h2>
+                  <p class="text-[12.5px] text-slate-400 mt-0.5">Urutan jumlah stok paling sedikit</p>
+                </div>
+                <button type="button" onclick="navigateTo('inventory')" class="text-[13px] font-semibold text-brand-500 hover:text-brand-600 flex items-center gap-1">
+                  View all <span>→</span>
+                </button>
+              </div>
+
+              <div class="flex-1 overflow-x-auto">
+                <table class="w-full text-left">
+                  <thead>
+                    <tr class="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <th class="py-2.5">PRODUCT</th>
+                      <th class="py-2.5">STOCK</th>
+                      <th class="py-2.5 text-right">STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashboardStockTable" class="divide-y divide-slate-100/80 text-[13.5px]"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-surface p-5 lg:px-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div class="flex items-start sm:items-center gap-4">
+              <div class="w-11 h-11 rounded-xl bg-brand-50 text-brand-500 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m12 3 1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="text-[11px] font-bold tracking-wider uppercase text-brand-500">AI RECOMMENDATION</div>
+                <div class="text-[16px] font-bold text-slate-900 mt-0.5"><span id="aiRecSummaryTitle">28 products • Order 456 unit</span> (0 stockout &amp; 100% aman)</div>
+                <div class="text-[12.5px] text-slate-400 mt-0.5">Terhubung langsung dengan Recommended Action &amp; Inventory Planning Parameters.</div>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-6 lg:gap-8">
+              <div id="aiAttentionList" class="grid grid-cols-3 gap-5 sm:gap-7 divide-x divide-slate-100"></div>
+
+              <button type="button" onclick="navigateTo('forecasting')" class="btn-primary h-11 px-5 rounded-xl text-[13.5px] font-semibold text-white flex items-center gap-2 shrink-0">
+                View recommendations <span>→</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section id="page-inventory" class="page-section hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 class="text-[28px] font-bold tracking-tight text-slate-900 leading-tight">Inventory Stock</h1>
+              <p class="text-[14px] text-slate-500 mt-1">Daftar lengkap persediaan 108 kode barang (0 stockout).</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button type="button" onclick="downloadTemplateCSV()" class="btn-outline h-10 px-4 rounded-xl text-[13.5px] font-semibold text-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+                </svg>
+                Template CSV
+              </button>
+              <button type="button" onclick="openUploadModal()" class="btn-primary h-10 px-4 rounded-xl text-[13.5px] font-semibold text-white flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 15V3m0 0-4 4m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+                </svg>
+                Upload Data
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col md:flex-row gap-3">
+            <div class="relative flex-1">
+              <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.3-4.3"/>
+              </svg>
+              <input
+                id="invSearchInput"
+                type="text"
+                placeholder="Cari kode atau nama barang..."
+                oninput="renderInventoryTable()"
+                class="w-full h-11 pl-10 pr-4 text-[13.5px] bg-white border border-slate-200 rounded-xl text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
+              />
+            </div>
+
+            <select id="invClassFilter" onchange="renderInventoryTable()" class="h-11 px-4 text-[13.5px] font-medium bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-brand-500 min-w-[180px]">
+              <option value="ALL">Semua klasifikasi</option>
+              <option value="Fast Moving">Fast Moving</option>
+              <option value="Slow Moving">Slow Moving</option>
+              <option value="Overstock">Overstock</option>
+            </select>
+
+            <select id="invCategoryFilter" onchange="renderInventoryTable()" class="h-11 px-4 text-[13.5px] font-medium bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-brand-500 min-w-[175px]">
+              <option value="ALL">Semua kategori</option>
+            </select>
+
+            <select id="invStatusFilter" onchange="renderInventoryTable()" class="h-11 px-4 text-[13.5px] font-medium bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-brand-500 min-w-[180px]">
+              <option value="ALL">Semua status</option>
+              <option value="Tidak Stockout">Tidak Stockout</option>
+              <option value="Hampir Stockout">Hampir Stockout</option>
+            </select>
+          </div>
+
+          <div class="card-surface overflow-hidden">
+            <div class="overflow-x-auto max-h-[620px]">
+              <table class="w-full text-left border-collapse">
+                <thead class="sticky top-0 z-10 bg-slate-50 border-b border-slate-200/80">
+                  <tr class="text-[11.5px] font-bold uppercase tracking-wider text-slate-500">
+                    <th class="py-3.5 px-5 text-center">STOCKOUT</th>
+                    <th class="py-3.5 px-4 text-center">KLASIFIKASI</th>
+                    <th class="py-3.5 px-4">KATEGORI<br>BARANG</th>
+                    <th class="py-3.5 px-4">KODE<br>BARANG</th>
+                    <th class="py-3.5 px-4">NAMA<br>BARANG</th>
+                    <th class="py-3.5 px-3">UNIT</th>
+                    <th class="py-3.5 px-3 text-right">STOK<br>AWAL</th>
+                    <th class="py-3.5 px-3 text-right">KELUAR</th>
+                    <th class="py-3.5 px-3 text-right">PENJUALAN</th>
+                    <th class="py-3.5 px-3 text-right">MASUK</th>
+                    <th class="py-3.5 px-5 text-right text-slate-900">STOK<br>AKHIR</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryTableBody" class="divide-y divide-slate-100 text-[13.5px]"></tbody>
+              </table>
+            </div>
+            <div class="px-5 py-3.5 border-t border-slate-100 bg-slate-50/40 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span id="inventoryRowSummary">Menampilkan 108 dari 108 barang</span>
+              <span>Sumber data: <strong class="text-slate-700" id="activeDatasetLabel">PI JOSJIS PT RJS (21 Sep – 17 Okt 2026)</strong></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="page-forecasting" class="page-section hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 class="text-[28px] font-bold tracking-tight text-slate-900 leading-tight">Forecasting &amp; Replenishment</h1>
+              <p class="text-[14px] text-slate-500 mt-1">Turn demand signals into smarter, timely purchasing decisions.</p>
+            </div>
+            <button type="button" onclick="regenerateForecast()" class="btn-primary h-10 px-4 rounded-xl text-[13.5px] font-semibold text-white flex items-center gap-2 self-start sm:self-auto">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m12 3 1.6 3.8L17.5 8.5l-3.9 1.7L12 14l-1.6-3.8L6.5 8.5l3.9-1.7L12 3Z"/>
+              </svg>
+              Generate recommendation
+            </button>
+          </div>
+
+          <div class="card-surface p-5">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+              <div class="md:col-span-5">
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">PRODUCT</label>
+                <select id="forecastProductSelect" onchange="renderForecastingView()" class="w-full h-11 px-3.5 text-[13.5px] font-medium bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-brand-500"></select>
+              </div>
+              <div class="md:col-span-4">
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">FORECAST PERIOD</label>
+                <select id="forecastPeriodSelect" onchange="renderForecastingView()" class="w-full h-11 px-3.5 text-[13.5px] font-medium bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-brand-500">
+                  <option value="30">Next 30 days</option>
+                  <option value="14">Next 14 days</option>
+                  <option value="7">Next 7 days</option>
+                  <option value="90">Next 90 days</option>
+                </select>
+              </div>
+              <div class="md:col-span-3">
+                <button type="button" onclick="renderForecastingView(true)" class="w-full h-11 rounded-xl bg-[#0B2C4D] hover:bg-[#0F3962] text-white text-[13.5px] font-semibold transition">
+                  Apply filters
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div class="xl:col-span-8 card-surface p-6 flex flex-col justify-between">
+              <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+                <div>
+                  <h2 class="text-[17px] font-bold text-slate-900">Demand Forecast</h2>
+                  <p class="text-[12.5px] text-slate-400 mt-0.5">Historical demand compared with the predicted trend (selaras Dashboard)</p>
+                </div>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/70 text-emerald-700 text-[12px] font-semibold">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 4 6v6c0 5 3.5 8.7 8 10 4.5-1.3 8-5 8-10V6l-8-3Z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m9 12 2 2 4-4"/>
+                  </svg>
+                  <span id="fcConfidence">94% confidence • Safety Stock Aman</span>
+                </span>
+              </div>
+
+              <div id="forecastChartContainer" class="relative w-full"></div>
+
+              <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[12px] text-slate-500">
+                <div class="flex items-center gap-5">
+                  <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#BDD6FE] inline-block"></span> Stock</span>
+                  <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-brand-500 inline-block"></span> Historical demand</span>
+                  <span class="flex items-center gap-2"><span class="w-3.5 h-0.5 bg-[#0D2B4E] inline-block"></span> Predicted demand</span>
+                </div>
+                <span id="fcTimestamp" class="text-slate-400">Forecast generated today at 09:24</span>
+              </div>
+            </div>
+
+            <div class="xl:col-span-4 card-surface p-6 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-3.5">
+                  <div class="w-11 h-11 rounded-xl bg-brand-50 text-brand-500 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m12 3 1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-[11px] font-bold tracking-wider uppercase text-brand-500">RECOMMENDED ACTION</div>
+                    <div id="fcActionTitle" class="text-[24px] font-bold text-slate-900 leading-tight">Order 0 unit</div>
+                  </div>
+                </div>
+
+                <div id="fcActionNote" class="mt-5 p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-[13px] text-slate-600 leading-relaxed"></div>
+
+                <div class="mt-5 divide-y divide-slate-100 text-[13.5px]">
+                  <div class="py-3 flex items-center justify-between">
+                    <span class="text-slate-400">Current stock</span>
+                    <span id="fcCurrentStock" class="font-bold text-slate-900">0 unit</span>
+                  </div>
+                  <div class="py-3 flex items-center justify-between">
+                    <span id="fcPeriodLabel" class="text-slate-400">30-day forecast</span>
+                    <span id="fcPeriodForecast" class="font-bold text-slate-900">0 unit</span>
+                  </div>
+                  <div class="py-3 flex items-center justify-between">
+                    <span class="text-slate-400">Expected stockout</span>
+                    <span id="fcStockoutDate" class="font-bold text-emerald-600">0 Risk (Aman)</span>
+                  </div>
+                  <div class="py-3 flex items-center justify-between">
+                    <span class="text-slate-400">Estimated order value</span>
+                    <span id="fcOrderValue" class="font-bold text-slate-900">Rp 0</span>
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" onclick="openPOModal()" class="mt-5 btn-primary w-full h-11 rounded-xl text-[14px] font-semibold text-white flex items-center justify-center gap-2">
+                Create purchase order <span>→</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card-surface overflow-hidden">
+            <div class="p-6 pb-4 flex items-center justify-between">
+              <div>
+                <h2 class="text-[17px] font-bold text-slate-900">Inventory Planning Parameters</h2>
+                <p class="text-[12.5px] text-slate-400 mt-0.5">Factors used to calculate this replenishment recommendation</p>
+              </div>
+              <button type="button" onclick="openEditParamsModal()" class="text-[13px] font-semibold text-brand-500 hover:text-brand-600">
+                Edit parameters
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-t border-slate-100 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+              <div class="p-5">
+                <div class="text-[12px] font-medium text-slate-400">Current stock</div>
+                <div class="mt-2 flex items-baseline gap-1.5">
+                  <span id="paramCurrentStock" class="text-[22px] font-bold text-slate-900">0</span>
+                  <span class="text-[12.5px] text-slate-400">unit</span>
+                </div>
+                <div class="mt-1 text-[11.5px] text-slate-400">On hand now</div>
+              </div>
+
+              <div class="p-5">
+                <div class="text-[12px] font-medium text-slate-400">Lead time</div>
+                <div class="mt-2 flex items-baseline gap-1.5">
+                  <span id="paramLeadTime" class="text-[22px] font-bold text-slate-900">7</span>
+                  <span class="text-[12.5px] text-slate-400">days</span>
+                </div>
+                <div class="mt-1 text-[11.5px] text-slate-400">Supplier average</div>
+              </div>
+
+              <div class="p-5">
+                <div class="text-[12px] font-medium text-slate-400">Safety stock</div>
+                <div class="mt-2 flex items-baseline gap-1.5">
+                  <span id="paramSafetyStock" class="text-[22px] font-bold text-slate-900">0</span>
+                  <span class="text-[12.5px] text-slate-400">unit</span>
+                </div>
+                <div class="mt-1 text-[11.5px] text-emerald-600 font-medium">100% Aman</div>
+              </div>
+
+              <div class="p-5">
+                <div class="text-[12px] font-medium text-slate-400">Reorder point</div>
+                <div class="mt-2 flex items-baseline gap-1.5">
+                  <span id="paramReorderPoint" class="text-[22px] font-bold text-slate-900">0</span>
+                  <span class="text-[12.5px] text-slate-400">unit</span>
+                </div>
+                <div class="mt-1 text-[11.5px] text-slate-400">Buffer threshold</div>
+              </div>
+
+              <div class="p-5 bg-brand-50/70">
+                <div class="text-[12px] font-semibold text-brand-500">Suggested order</div>
+                <div class="mt-2 flex items-baseline gap-1.5">
+                  <span id="paramSuggestedOrder" class="text-[22px] font-bold text-brand-500">0</span>
+                  <span class="text-[12.5px] text-brand-500/80">unit</span>
+                </div>
+                <div class="mt-1 text-[11.5px] text-slate-500">Optimized order quantity</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="page-reports" class="page-section hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 class="text-[28px] font-bold tracking-tight text-slate-900 leading-tight">Inventory Reports</h1>
+              <p class="text-[14px] text-slate-500 mt-1">Laporan menyeluruh untuk kesehatan persediaan dan peluang peningkatan performa.</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button type="button" onclick="exportDashboardCSV()" class="btn-outline h-10 px-4 rounded-xl text-[13.5px] font-semibold text-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+                </svg>
+                Export CSV
+              </button>
+              <button type="button" onclick="downloadTemplateCSV()" class="btn-primary h-10 px-4 rounded-xl text-[13.5px] font-semibold text-white flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6"/>
+                </svg>
+                Template CSV
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="card-surface p-6">
+              <h2 class="text-[17px] font-bold text-slate-900">Inventory Health Breakdown</h2>
+              <p class="text-[12.5px] text-slate-400 mt-0.5 mb-6">Persentase kesehatan stok secara menyeluruh</p>
+
+              <div class="space-y-5">
+                <div>
+                  <div class="flex items-center justify-between text-[13.5px] mb-2">
+                    <span class="font-medium text-slate-700">Healthy stock</span>
+                    <span id="repHealthyLabel" class="font-bold text-slate-900">108 SKU (100.0%)</span>
+                  </div>
+                  <div class="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div id="repHealthyBar" class="h-full rounded-full bg-emerald-500 transition-all duration-500" style="width: 100%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex items-center justify-between text-[13.5px] mb-2">
+                    <span class="font-medium text-slate-700">Low stock warning</span>
+                    <span id="repWarningLabel" class="font-bold text-slate-900">0 SKU (0.0%)</span>
+                  </div>
+                  <div class="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div id="repWarningBar" class="h-full rounded-full bg-amber-400 transition-all duration-500" style="width: 0%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex items-center justify-between text-[13.5px] mb-2">
+                    <span class="font-medium text-slate-700">Critical stock</span>
+                    <span id="repCriticalLabel" class="font-bold text-slate-900">0 SKU (0.0%)</span>
+                  </div>
+                  <div class="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div id="repCriticalBar" class="h-full rounded-full bg-rose-500 transition-all duration-500" style="width: 0%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-surface p-6">
+              <h2 class="text-[17px] font-bold text-slate-900">File &amp; Dataset Metadata</h2>
+              <p class="text-[12.5px] text-slate-400 mt-0.5 mb-5">Informasi data inventory yang sedang digunakan</p>
+
+              <div class="divide-y divide-slate-100 text-[13.5px]">
+                <div class="py-3.5 flex items-center justify-between gap-4">
+                  <span class="text-slate-500">Sumber data</span>
+                  <span id="repSource" class="font-bold text-slate-900 text-right">PI JOSJIS PT RJS (21 Sep – 17 Okt 2026)</span>
+                </div>
+                <div class="py-3.5 flex items-center justify-between gap-4">
+                  <span class="text-slate-500">Total unik SKU</span>
+                  <span id="repTotalSku" class="font-bold text-slate-900">108 item</span>
+                </div>
+                <div class="py-3.5 flex items-center justify-between gap-4">
+                  <span class="text-slate-500">Total kuantitas stok</span>
+                  <span id="repTotalQty" class="font-bold text-slate-900">0 unit</span>
+                </div>
+                <div class="py-3.5 flex items-center justify-between gap-4">
+                  <span class="text-slate-500">Produk berisiko</span>
+                  <span id="repRiskSku" class="font-bold text-rose-600">0 SKU</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-surface p-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-5">
+              <div>
+                <div class="text-[11px] font-bold tracking-wider uppercase text-slate-400">PERFORMANCE OPPORTUNITIES</div>
+                <h2 class="text-[18px] font-bold text-slate-900 mt-0.5">Analisis untuk meningkatkan performa</h2>
+              </div>
+              <p class="text-[12.5px] text-slate-400 md:text-right max-w-xs">
+                Prioritaskan tindakan berdasarkan risiko pendapatan dan ketersediaan stok.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 border border-slate-100 rounded-2xl overflow-hidden divide-y md:divide-y-0 md:divide-x divide-slate-100">
+              <div class="p-5 bg-white">
+                <div class="text-[11px] font-bold tracking-wider uppercase text-rose-600">LOST SALES RISK</div>
+                <div id="repLostCount" class="mt-2.5 text-[24px] font-bold text-slate-900">0 produk</div>
+                <div id="repLostValue" class="text-[15px] font-bold text-slate-900 mt-0.5">Rp 0</div>
+                <p class="mt-3 text-[12px] text-slate-500 leading-relaxed">
+                  Potensi nilai penjualan yang hilang akibat stok di bawah reorder point dan peringatan stok rendah.
+                </p>
+              </div>
+
+              <div class="p-5 bg-white">
+                <div class="text-[11px] font-bold tracking-wider uppercase text-slate-500">REORDER PRIORITY</div>
+                <div id="repPriorityName" class="mt-2.5 text-[24px] font-bold text-slate-900">CLEAR</div>
+                <div id="repPriorityQty" class="text-[15px] font-bold text-brand-500 mt-0.5">12 unit tersisa</div>
+                <p class="mt-3 text-[12px] text-slate-500 leading-relaxed">
+                  Prioritaskan pemesanan untuk mencegah stockout pada periode berikutnya.
+                </p>
+              </div>
+
+              <div class="p-5 bg-white">
+                <div class="text-[11px] font-bold tracking-wider uppercase text-slate-500">SAFETY STOCK</div>
+                <div id="repSafetyPct" class="mt-2.5 text-[24px] font-bold text-slate-900">100% SKU aman</div>
+                <div id="repSafetyAttention" class="text-[15px] font-bold text-amber-600 mt-0.5">0 SKU perlu perhatian</div>
+                <p class="mt-3 text-[12px] text-slate-500 leading-relaxed">
+                  Tinjau ulang titik pemesanan dan lead time pemasok untuk produk berisiko.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-[#07213B] p-6 lg:px-7 flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-lg shadow-slate-900/10">
+            <div>
+              <div class="text-[11px] font-bold tracking-wider uppercase text-[#7EB1FF]">RECOMMENDED NEXT STEP</div>
+              <h3 class="text-[19px] font-bold text-white mt-1">Pertahankan status 0 stockout &amp; 100% SKU aman</h3>
+              <p class="text-[13px] text-[#9BB4CF] mt-1">
+                Seluruh 108 SKU dalam kondisi sehat tanpa risiko lost sales. Pantau CLEAR (NP 222 — 12 unit tersisa) untuk replenishment preventif.
+              </p>
+            </div>
+            <button type="button" onclick="jumpToProductForecast('NP 222', 'CLEAR')" class="h-11 px-5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 text-[13.5px] font-semibold flex items-center gap-2 shrink-0 transition">
+              Review CLEAR <span>→</span>
+            </button>
+          </div>
+        </section>
+
+        <section id="page-settings" class="page-section hidden space-y-6">
+          <div>
+            <h1 class="text-[28px] font-bold tracking-tight text-slate-900 leading-tight">Settings</h1>
+            <p class="text-[14px] text-slate-500 mt-1">Konfigurasi profil perusahaan, kapasitas gudang, dan preferensi dashboard.</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="card-surface p-6 space-y-4">
+              <h2 class="text-[17px] font-bold text-slate-900">Workspace &amp; Company</h2>
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1.5">Nama Aplikasi</label>
+                <input type="text" value="DIDDS" class="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-brand-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1.5">Nama Perusahaan</label>
+                <input type="text" value="PT RJS" class="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-brand-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1.5">Administrator</label>
+                <input type="text" value="Alex Morgan" class="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-brand-500" />
+              </div>
+              <button type="button" onclick="showToast('Pengaturan workspace berhasil disimpan.')" class="btn-primary h-10 px-5 rounded-xl text-sm font-semibold text-white">
+                Simpan Perubahan
+              </button>
+            </div>
+
+            <div class="card-surface p-6 space-y-4">
+              <h2 class="text-[17px] font-bold text-slate-900">Default Replenishment Rules</h2>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 mb-1.5">Default Lead Time (hari)</label>
+                  <input type="number" value="7" class="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm text-slate-800" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 mb-1.5">Safety Stock Target (%)</label>
+                  <input type="number" value="100" class="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm text-slate-800" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1.5">Harga Rata-rata per unit (untuk estimasi nilai PO)</label>
+                <input type="number" value="85000" class="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm text-slate-800" />
+              </div>
+              <button type="button" onclick="showToast('Aturan replenishment diperbarui.')" class="btn-outline h-10 px-5 rounded-xl text-sm font-semibold text-slate-700">
+                Terapkan Default
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <div id="chartTooltip" class="fixed z-50 hidden bg-slate-900 text-white text-xs rounded-xl px-3 py-2 shadow-xl"></div>
+
+  <div id="poModal" class="fixed inset-0 z-50 hidden bg-slate-900/45 backdrop-blur-[3px] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200/80 max-w-[490px] w-full p-6 shadow-2xl">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-xl bg-blue-50 text-brand-500 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12l1 13H5L6 7Z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 7V5a3 3 0 0 1 6 0v2"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12a3 3 0 0 0 6 0"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-[18px] font-bold text-slate-900 leading-tight">Buat Purchase Order</h3>
+            <p class="text-[12.5px] text-slate-400 mt-0.5">Konfirmasi pemesanan kembali (Replenishment)</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeModal('poModal')" class="text-slate-400 hover:text-slate-600 text-2xl leading-none px-1">&times;</button>
+      </div>
+
+      <div class="mt-6 space-y-4">
+        <div>
+          <label class="block text-[12.5px] font-semibold text-slate-700 mb-1.5">Kode SKU Barang</label>
+          <input id="poSkuCode" type="text" readonly class="w-full h-11 px-3.5 rounded-xl bg-slate-100/80 border border-slate-200 text-[13.5px] font-bold text-slate-800 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-[12.5px] font-semibold text-slate-700 mb-1.5">Pemasok (Supplier)</label>
+          <input id="poSupplier" type="text" value="PT Nippon Paint Indonesia" class="w-full h-11 px-3.5 rounded-xl bg-white border border-slate-200 text-[13.5px] text-slate-800 focus:outline-none focus:border-brand-500" />
+        </div>
+        <div>
+          <label class="block text-[12.5px] font-semibold text-slate-700 mb-1.5">Kuantitas Pesanan (Q)</label>
+          <input id="poQty" type="number" min="1" class="w-full h-11 px-3.5 rounded-xl bg-white border border-slate-200 text-[13.5px] font-bold text-slate-900 focus:outline-none focus:border-brand-500" />
+          <p class="text-[11.5px] text-slate-400 mt-1.5">Kelipatan order default: 12 unit</p>
+        </div>
+        <div>
+          <label class="block text-[12.5px] font-semibold text-slate-700 mb-1.5">Catatan Tambahan</label>
+          <textarea id="poNotes" rows="3" class="w-full p-3.5 rounded-xl bg-white border border-slate-200 text-[13.5px] text-slate-700 focus:outline-none focus:border-brand-500 resize-y">Order pengisian stok berkala periode review R=6 hari.</textarea>
+        </div>
+      </div>
+
+      <div class="mt-6 flex items-center justify-end gap-2.5">
+        <button type="button" onclick="closeModal('poModal')" class="btn-outline h-10 px-4 rounded-xl text-[13.5px] font-semibold text-slate-700">Batal</button>
+        <button type="button" onclick="submitPurchaseOrder()" class="btn-primary h-10 px-5 rounded-xl text-[13.5px] font-semibold text-white flex items-center gap-2">Terbitkan PO <span>→</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="uploadModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-slate-900">Upload / Update Data Inventaris</h3>
+        <button type="button" onclick="closeModal('uploadModal')" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-xs text-slate-500 mb-4">
+        Unggah file CSV dengan format DIDDS. Seluruh angka di Dashboard, Inventory, Forecasting, dan Reports akan otomatis menyesuaikan dan grafik bergerak ulang.
+      </p>
+      <label class="block border-2 border-dashed border-slate-200 hover:border-brand-500 rounded-xl p-6 text-center cursor-pointer transition">
+        <input id="csvFileInput" type="file" accept=".csv" class="hidden" onchange="handleCSVUpload(event)" />
+        <svg class="w-8 h-8 mx-auto text-brand-500 mb-2" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15V3m0 0-4 4m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+        </svg>
+        <div class="text-sm font-semibold text-slate-700">Klik untuk pilih file CSV</div>
+        <div class="text-xs text-slate-400 mt-1">11 kolom sesuai template</div>
+      </label>
+      <div class="mt-4 flex justify-end gap-2">
+        <button type="button" onclick="closeModal('uploadModal')" class="btn-outline h-9 px-4 rounded-xl text-xs font-semibold text-slate-600">Batal</button>
+        <button type="button" onclick="downloadTemplateCSV()" class="btn-primary h-9 px-4 rounded-xl text-xs font-semibold text-white">Download Template</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="editParamsModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-slate-900">Edit Planning Parameters</h3>
+        <button type="button" onclick="closeModal('editParamsModal')" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      </div>
+      <div class="space-y-3.5 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Lead time (days)</label>
+          <input id="inputLeadTime" type="number" class="w-full h-10 px-3 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Safety stock (unit)</label>
+          <input id="inputSafetyStock" type="number" class="w-full h-10 px-3 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Reorder point (unit)</label>
+          <input id="inputReorderPoint" type="number" class="w-full h-10 px-3 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Suggested order (unit)</label>
+          <input id="inputSuggestedOrder" type="number" class="w-full h-10 px-3 rounded-xl border border-slate-200" />
+        </div>
+      </div>
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" onclick="closeModal('editParamsModal')" class="btn-outline h-9 px-4 rounded-xl text-xs font-semibold text-slate-600">Cancel</button>
+        <button type="button" onclick="saveEditedParams()" class="btn-primary h-9 px-4 rounded-xl text-xs font-semibold text-white">Save Parameters</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="csvExportModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-xl w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold text-slate-900" id="csvExportModalTitle">File CSV Siap</h3>
+        <button type="button" onclick="closeModal('csvExportModal')" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      </div>
+      <textarea id="csvExportTextarea" rows="8" readonly class="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono text-slate-700 focus:outline-none"></textarea>
+      <div class="mt-4 flex flex-wrap justify-end gap-2">
+        <button type="button" onclick="copyCsvExportText()" class="btn-outline h-9 px-4 rounded-xl text-xs font-semibold text-slate-700">Copy CSV</button>
+        <a id="csvDirectDownloadLink" href="#" download="inventory.csv" class="btn-primary h-9 px-4 rounded-xl text-xs font-semibold text-white inline-flex items-center">Download File</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastBox" class="fixed bottom-5 right-5 z-50 hidden bg-slate-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5">
+    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span id="toastMessage">Berhasil!</span>
+  </div>
+
+  <script>
+    const rawCsvData = `Kategori Barang,Kode Barang,Nama Barang,Unit,Stok Awal,Keluar,Penjualan,Masuk,Stok Akhir,Stockout,Klasifikasi
+NIPPE,NHE B,BLACK,kg,168,36,32,12,144,Tidak Stockout,Fast Moving
+NIPPE,NHE G,GREY,kg,120,30,27,24,114,Tidak Stockout,Fast Moving
+NIPPE,NHE W,WHITE,kg,170,42,37,12,140,Tidak Stockout,Fast Moving
+NIPPE,NP 101,SUPER WHITE,kg,25,30,27,60,55,Tidak Stockout,Fast Moving
+NIPPE,NP 102,SUPER BLACK,kg,131,36,32,24,119,Tidak Stockout,Fast Moving
+NIPPE,NP 470 S,SUPER WHITE,kg,84,24,21,48,108,Tidak Stockout,Fast Moving
+NIPPE,NP 480 M,BLACK MATT,kg,144,42,37,24,126,Tidak Stockout,Fast Moving
+NIPPE,NP 480 S,SUPER BLACK,kg,84,30,27,48,102,Tidak Stockout,Fast Moving
+NIPPE,NP 492 T,LIGHT GREY,kg,141,36,32,24,129,Tidak Stockout,Fast Moving
+NIPPE,NP 006,MADORAS BROWN,kg,145,0,0,0,145,Tidak Stockout,Slow Moving
+NIPPE,NP 007,OLYMPIA YELLOW,kg,30,6,2,0,24,Tidak Stockout,Slow Moving
+NIPPE,NP 012,CHAMONIX,kg,139,0,0,0,139,Tidak Stockout,Slow Moving
+NIPPE,NP 020,EMERALD GREEN,kg,21,4,3,12,29,Tidak Stockout,Slow Moving
+NIPPE,NP 028,TOBACCO BROWN,kg,106,3,2,0,103,Tidak Stockout,Slow Moving
+NIPPE,NP 030,FANCY RED,kg,10,6,3,36,40,Tidak Stockout,Slow Moving
+NIPPE,NP 041,SADDLE BROWN,kg,12,12,5,36,36,Tidak Stockout,Slow Moving
+NIPPE,NP 044,AURORA WHITE,kg,59,6,3,0,53,Tidak Stockout,Slow Moving
+NIPPE,NP 045,MIKROLET BLUE,kg,82,3,1,0,79,Tidak Stockout,Slow Moving
+NIPPE,NP 046,PASTEL GREY,kg,144,0,0,0,144,Tidak Stockout,Slow Moving
+NIPPE,NP 047,LEAF GREEN,kg,60,6,3,0,54,Tidak Stockout,Slow Moving
+NIPPE,NP 1003,VICTORY RED SUZUKI,kg,12,2,0,36,46,Tidak Stockout,Slow Moving
+NIPPE,NP 1004,LIGHT YELLOW SUZUKI,kg,36,2,1,0,34,Tidak Stockout,Slow Moving
+NIPPE,NP 1005,CARRY WHITE SUZUKI,kg,42,6,3,0,36,Tidak Stockout,Slow Moving
+NIPPE,NP 1011,ADMIRAL BLUE,kg,12,6,4,12,18,Tidak Stockout,Slow Moving
+NIPPE,NP 1012,OFF WHITE,kg,120,3,1,0,117,Tidak Stockout,Slow Moving
+NIPPE,NP 1019,KIJANG WHITE,kg,17,0,0,36,53,Tidak Stockout,Slow Moving
+NIPPE,NP 1024,SUZUKI WHITE,kg,146,0,0,0,146,Tidak Stockout,Slow Moving
+NIPPE,NP 1030,KRL DARK GREEN,kg,24,0,0,0,24,Tidak Stockout,Slow Moving
+NIPPE,NP 1031,HINO GREEN,kg,66,6,3,0,60,Tidak Stockout,Slow Moving
+NIPPE,NP 1032,DEEP BLUE SEA,kg,105,3,2,0,102,Tidak Stockout,Slow Moving
+NIPPE,NP 1033,CHARCOAL,kg,96,3,1,0,93,Tidak Stockout,Slow Moving
+NIPPE,NP 1037,PINK CLOUD,kg,118,3,1,0,115,Tidak Stockout,Slow Moving
+NIPPE,NP 138,VITA CREAM,kg,133,0,0,0,133,Tidak Stockout,Slow Moving
+NIPPE,NP 141,DARK BROWN,kg,72,6,3,0,66,Tidak Stockout,Slow Moving
+NIPPE,NP 19,EXCELLENTE WHITE,kg,144,0,0,0,144,Tidak Stockout,Slow Moving
+NIPPE,NP 196,POLAR WHITE MIT,kg,140,0,0,0,140,Tidak Stockout,Slow Moving
+NIPPE,NP 199,EXCLUSIVE GREY VESPA,kg,114,3,2,0,111,Tidak Stockout,Slow Moving
+NIPPE,NP 205,COLT BEIGE,kg,31,0,0,0,31,Tidak Stockout,Slow Moving
+NIPPE,NP 222,CLEAR,kg,24,12,9,0,12,Hampir Stockout,Slow Moving
+NIPPE,NP 302 T,ORANGE YELLOW,kg,53,6,4,12,59,Tidak Stockout,Slow Moving
+NIPPE,NP 303 T,DARK BLUE,kg,34,0,0,0,34,Tidak Stockout,Slow Moving
+NIPPE,NP 307 S,STRONG BLUE,kg,19,0,0,12,31,Tidak Stockout,Slow Moving
+NIPPE,NP 310,TAXI YELLOW,kg,61,6,2,0,55,Tidak Stockout,Slow Moving
+NIPPE,NP 315,SILVER,kg,36,0,0,0,36,Tidak Stockout,Slow Moving
+NIPPE,NP 318 T,LIGHT VERMILLION,kg,113,3,2,0,110,Tidak Stockout,Slow Moving
+NIPPE,NP 319,COKLAT SUSU,kg,144,0,0,0,144,Tidak Stockout,Slow Moving
+NIPPE,NP 320 T,TAXI ORANGE,kg,156,0,0,0,156,Tidak Stockout,Slow Moving
+NIPPE,NP 322 T,LEMON YELLOW,kg,140,0,0,0,140,Tidak Stockout,Slow Moving
+NIPPE,NP 330 T,PEACOCK BLUE,kg,24,0,0,0,24,Tidak Stockout,Slow Moving
+NIPPE,NP 331 T,PINKY BEIGE,kg,120,3,1,0,117,Tidak Stockout,Slow Moving
+NIPPE,NP 352 T,OYSTER,kg,103,3,1,0,100,Tidak Stockout,Slow Moving
+NIPPE,NP 376 T,MARINE BLUE,kg,74,3,1,0,71,Tidak Stockout,Slow Moving
+NIPPE,NP 381 T,EMERALD GREEN,kg,111,3,1,0,108,Tidak Stockout,Slow Moving
+NIPPE,NP 388 T,VICTORIA BLUE,kg,148,0,0,0,148,Tidak Stockout,Slow Moving
+NIPPE,NP 396 T,CYANINE BLUE,kg,90,3,2,0,87,Tidak Stockout,Slow Moving
+NIPPE,NP 400,DUCO GREY,kg,27,0,0,0,27,Tidak Stockout,Slow Moving
+NIPPE,NP 402 S,TURQUOISE GREEN,kg,24,0,0,0,24,Tidak Stockout,Slow Moving
+NIPPE,NP 403 T,INTERNATIONAL ORANGE,kg,147,0,0,0,147,Tidak Stockout,Slow Moving
+NIPPE,NP 409 T,WATCHING RED,kg,42,6,4,0,36,Tidak Stockout,Slow Moving
+NIPPE,NP 413,HAVANA BROWN,kg,140,0,0,0,140,Tidak Stockout,Slow Moving
+NIPPE,NP 425 T,LUCKY STONE,kg,71,6,3,0,65,Tidak Stockout,Slow Moving
+NIPPE,NP 434,SONG BIRD,kg,36,0,0,0,36,Tidak Stockout,Slow Moving
+NIPPE,NP 435,TOSCA GREEN,kg,132,0,0,0,132,Tidak Stockout,Slow Moving
+NIPPE,NP 436,LIGHT VIOLET,kg,36,0,0,0,36,Tidak Stockout,Slow Moving
+NIPPE,NP 437,PURPLE,kg,134,0,0,0,134,Tidak Stockout,Slow Moving
+NIPPE,NP 439,WILD ROSE,kg,10,0,0,36,46,Tidak Stockout,Slow Moving
+NIPPE,NP 441,NOSEGAY PINK,kg,24,0,0,0,24,Tidak Stockout,Slow Moving
+NIPPE,NP 442,PEACH,kg,156,0,0,0,156,Tidak Stockout,Slow Moving
+NIPPE,NP 444,LAKE GREEN,kg,24,0,0,0,24,Tidak Stockout,Slow Moving
+NIPPE,NP 447,DARK CHROME YELLOW,kg,109,3,1,0,106,Tidak Stockout,Slow Moving
+NIPPE,NP 451,COLT DIESEL YELLOW,kg,30,0,0,0,30,Tidak Stockout,Slow Moving
+NIPPE,NP 452,KUNING GADING,kg,35,0,0,0,35,Tidak Stockout,Slow Moving
+NIPPE,NP 453,SEPHIA ORANGE,kg,103,3,1,0,100,Tidak Stockout,Slow Moving
+NIPPE,NP 454 T,PERIWINCLE,kg,60,6,3,0,54,Tidak Stockout,Slow Moving
+NIPPE,NP 460 T,CREAM,kg,72,6,2,0,66,Tidak Stockout,Slow Moving
+NIPPE,NP 469 T,MOSAGATE GREY,kg,155,0,0,0,155,Tidak Stockout,Slow Moving
+NIPPE,NP 470 M,MATT WHITE,kg,78,3,1,0,75,Tidak Stockout,Slow Moving
+NIPPE,NP 501,SIGNAL RED,kg,55,6,3,0,49,Tidak Stockout,Slow Moving
+NIPPE,NP 503,LIGHT BEIGE,kg,99,3,1,0,96,Tidak Stockout,Slow Moving
+NIPPE,NP 509,SUMATRA GREEN,kg,66,6,3,0,60,Tidak Stockout,Slow Moving
+NIPPE,NP 512,BALTIC WHITE,kg,161,0,0,0,161,Tidak Stockout,Slow Moving
+NIPPE,NP 517,PUTIH CLASSIC,kg,77,3,2,0,74,Tidak Stockout,Slow Moving
+NIPPE,NP 519,COKLAT MUDA,kg,24,0,0,0,24,Tidak Stockout,Slow Moving
+NIPPE,NP 614,RED WINE,kg,12,0,0,36,48,Tidak Stockout,Slow Moving
+NIPPE,NP 631,RED PM,kg,28,0,0,0,28,Tidak Stockout,Slow Moving
+NIPPE,NP 710,LIGHT GREEN,kg,99,3,2,0,96,Tidak Stockout,Slow Moving
+NIPPE,NP 805,CHESTNUT BROWN,kg,72,6,3,0,66,Tidak Stockout,Slow Moving
+NIPPE,NP CB 1,COPPER BRASS,kg,95,3,1,0,92,Tidak Stockout,Slow Moving
+NIPPE,NP CB 2,COPPER BRONZE,kg,75,3,1,0,72,Tidak Stockout,Slow Moving
+NIPPE,NP CG,COPPER GOLD,kg,49,6,4,0,43,Tidak Stockout,Slow Moving
+NIPPE,NP T1,TEMBAGA I,kg,57,6,3,0,51,Tidak Stockout,Slow Moving
+NIPPE,NP T2,TEMBAGA I DAN II,kg,75,3,2,0,72,Tidak Stockout,Slow Moving
+NIPPE,NP 017,CICILIAN OLIVE,kg,84,0,0,0,84,Tidak Stockout,Overstock
+NIPPE,NP 031,SILKY WHITE,kg,48,0,0,0,48,Tidak Stockout,Overstock
+NIPPE,NP 040,LIGHT IVORY,kg,48,0,0,0,48,Tidak Stockout,Overstock
+NIPPE,NP 1013,INDIGO BLUE,kg,48,0,0,0,48,Tidak Stockout,Overstock
+NIPPE,NP 110,ARMY GREEN,kg,36,0,0,0,36,Tidak Stockout,Overstock
+NIPPE,NP 222 M,CLEAR MATT,kg,48,0,0,0,48,Tidak Stockout,Overstock
+NIPPE,NP 359 S,ORCHID MIST,kg,42,0,0,0,42,Tidak Stockout,Overstock
+NIPPE,NP 360-T,AXINITE GREY,kg,36,0,0,0,36,Tidak Stockout,Overstock
+NIPPE,NP 445 T,ORIENTAL GREEN,kg,84,0,0,0,84,Tidak Stockout,Overstock
+NIPPE,NP 448,LIGHT CHROME YELLOW,kg,41,0,0,0,41,Tidak Stockout,Overstock
+NIPPE,NP 449,GENTIAN BLUE,kg,41,0,0,0,41,Tidak Stockout,Overstock
+NIPPE,NP 454 T,RED CHILLI,kg,84,0,0,0,84,Tidak Stockout,Overstock
+NIPPE,NP 462,GREEN NS,kg,36,0,0,0,36,Tidak Stockout,Overstock
+NIPPE,NP 473,CREAMY IVORY,kg,49,0,0,0,49,Tidak Stockout,Overstock
+NIPPE,NP 605,PURE WHITE,kg,48,0,0,0,48,Tidak Stockout,Overstock
+NIPPE,NP 636,PACK WHITE,kg,48,0,0,0,48,Tidak Stockout,Overstock`;
+
+    function parseCsvToRows(csvText) {
+      const lines = csvText.trim().split(/\r?\n/);
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(s => s.trim());
+        if (cols.length < 9) continue;
+        const stokAkhir = Number(cols[8]) || 0;
+        const keluar = Number(cols[5]) || 0;
+        const penjualan = Number(cols[6]) || 0;
+        const stockout = cols[9] || (stokAkhir <= 0 ? 'Stockout' : 'Tidak Stockout');
+        const klasifikasi = cols[10] || 'Slow Moving';
+
+        const safetyStock = stokAkhir <= 0 ? 10 : Math.max(1, Math.floor(stokAkhir * 0.65));
+        const reorderPoint = Math.max(safetyStock, Math.round(safetyStock + Math.max(2, keluar * 0.25)));
+        const needsOrder = (keluar >= 6 && stokAkhir <= 130) || stockout === 'Hampir Stockout';
+        const suggestedOrder = needsOrder
+          ? Math.max(12, Math.ceil((keluar * 0.75) / 12) * 12)
+          : 0;
+
+        rows.push({
+          id: i - 1,
+          kategori: cols[0] || 'NIPPE',
+          kode: cols[1],
+          nama: cols[2],
+          unit: cols[3] || 'kg',
+          stokAwal: Number(cols[4]) || 0,
+          keluar,
+          penjualan,
+          masuk: Number(cols[7]) || 0,
+          stokAkhir,
+          stockout,
+          klasifikasi,
+          leadTime: 7,
+          safetyStock,
+          reorderPoint,
+          suggestedOrder,
+          unitPriceRp: 85000
+        });
+      }
+      return rows;
+    }
+
+    let inventoryRows = parseCsvToRows(rawCsvData);
+
+    function getUnifiedMetrics() {
+      const totalSku = inventoryRows.length;
+      const totalStockQty = inventoryRows.reduce((s, r) => s + r.stokAkhir, 0);
+      const totalSafetyStock = inventoryRows.reduce((s, r) => s + r.safetyStock, 0);
+      const totalReorderPoint = inventoryRows.reduce((s, r) => s + r.reorderPoint, 0);
+
+      const dummyDemand = Math.round(totalStockQty * 0.68);
+      const dummyForecast = Math.round(dummyDemand * 1.085);
+
+      const recommendedItems = inventoryRows.filter(r => r.suggestedOrder > 0);
+      const recommendedProductCount = recommendedItems.length;
+      const totalSuggestedUnits = recommendedItems.reduce((s, r) => s + r.suggestedOrder, 0);
+
+      const stockoutItems = inventoryRows.filter(r => r.stockout === 'Stockout');
+      const criticalCount = stockoutItems.length;
+      const warningCount = 0;
+      const healthyCount = totalSku - criticalCount - warningCount;
+      const riskCount = criticalCount + warningCount;
+
+      const lostSalesCount = stockoutItems.length;
+      const lostSalesValue = 0;
+      const safetyPct = totalSku > 0 ? Math.round(((totalSku - riskCount) / totalSku) * 100) : 100;
+
+      const sortedByLowest = [...inventoryRows].sort((a, b) => a.stokAkhir - b.stokAkhir);
+      const priorityItem = sortedByLowest[0] || inventoryRows[0];
+
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const sWeights = [0.95, 0.98, 0.96, 1.02, 1.00, 0.97, 1.00];
+      const dWeights = [0.88, 0.95, 0.91, 1.05, 1.01, 0.94, 1.00];
+      const fWeights = [0.89, 0.96, 0.92, 1.04, 1.01, 0.95, 1.00];
+
+      const unifiedTrend = days.map((day, idx) => ({
+        day,
+        stock: Math.round(totalStockQty * sWeights[idx]),
+        demand: Math.round(dummyDemand * dWeights[idx]),
+        forecast: Math.round(dummyForecast * fWeights[idx]),
+      }));
+
+      return {
+        totalSku,
+        totalStockQty,
+        totalSafetyStock,
+        totalReorderPoint,
+        dummyDemand,
+        dummyForecast,
+        recommendedProductCount,
+        totalSuggestedUnits,
+        healthyCount,
+        warningCount,
+        criticalCount,
+        riskCount,
+        lostSalesCount,
+        lostSalesValue,
+        safetyPct,
+        priorityItem,
+        sortedByLowest,
+        unifiedTrend
+      };
+    }
+
+    function navigateTo(page) {
+      document.querySelectorAll('.page-section').forEach(sec => sec.classList.add('hidden'));
+      const target = document.getElementById(`page-${page}`);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.toggle('nav-item-active', btn.dataset.page === page);
+      });
+
+      if (page === 'dashboard') renderDashboard();
+      if (page === 'forecasting') renderForecastingView();
+
+      if (window.innerWidth < 1024) toggleSidebar(false);
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+    });
+
+    let sidebarOpen = true;
+    function toggleSidebar(forceState) {
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+
+      if (window.innerWidth < 1024) {
+        const shouldOpen = typeof forceState === 'boolean' ? forceState : sidebar.classList.contains('-translate-x-full');
+        sidebar.classList.toggle('-translate-x-full', !shouldOpen);
+        backdrop.classList.toggle('hidden', !shouldOpen);
+      } else {
+        sidebarOpen = typeof forceState === 'boolean' ? forceState : !sidebarOpen;
+        sidebar.style.width = sidebarOpen ? '260px' : '82px';
+        document.querySelectorAll('.sidebar-text').forEach(el => el.classList.toggle('hidden', !sidebarOpen));
+      }
+    }
+
+    function handleResize() {
+      const sidebar = document.getElementById('sidebar');
+      if (window.innerWidth < 1024) {
+        sidebar.classList.add('-translate-x-full');
+        sidebar.style.width = '260px';
+        document.querySelectorAll('.sidebar-text').forEach(el => el.classList.remove('hidden'));
+      } else {
+        sidebar.classList.remove('-translate-x-full');
+        document.getElementById('sidebarBackdrop').classList.add('hidden');
+      }
+    }
+    window.addEventListener('resize', handleResize);
+
+    function renderDashboard() {
+      const m = getUnifiedMetrics();
+
+      document.getElementById('kpiTotalSkuPill').textContent = `${m.totalSku} SKU`;
+      document.getElementById('kpiTotalStock').textContent = m.totalStockQty.toLocaleString('en-US');
+      document.getElementById('kpiTotalDemand').textContent = m.dummyDemand.toLocaleString('en-US');
+      document.getElementById('kpiForecastCompare').textContent = `↗ Forecast ${m.dummyForecast.toLocaleString('en-US')} unit`;
+      document.getElementById('kpiSafetyHealth').textContent = m.safetyPct;
+
+      document.getElementById('kpiRecOrders').textContent = m.recommendedProductCount;
+      document.getElementById('kpiRecTotalUnits').textContent = `↗ ${m.totalSuggestedUnits.toLocaleString('en-US')} unit`;
+      document.getElementById('notifRecSummary').textContent = `${m.recommendedProductCount} Produk (${m.totalSuggestedUnits} unit)`;
+      document.getElementById('aiRecSummaryTitle').textContent = `${m.recommendedProductCount} products • Order ${m.totalSuggestedUnits.toLocaleString('en-US')} unit`;
+
+      const lowestStockItems = m.sortedByLowest.slice(0, 5);
+      document.getElementById('dashboardStockTable').innerHTML = lowestStockItems.map(p => `
+        <tr class="hover:bg-slate-50/70 cursor-pointer transition" onclick="jumpToProductById(${p.id})">
+          <td class="py-3.5 pr-2">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-slate-100/80 text-slate-500 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/>
+                </svg>
+              </div>
+              <div>
+                <div class="font-bold text-slate-900 text-[13px] leading-tight">${p.nama}</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">${p.kode} • ${p.klasifikasi}</div>
+              </div>
+            </div>
+          </td>
+          <td class="py-3.5 font-bold text-slate-800 whitespace-nowrap">${p.stokAkhir} unit</td>
+          <td class="py-3.5 text-right">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-semibold bg-emerald-50 text-emerald-700">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Safe
+            </span>
+          </td>
+        </tr>
+      `).join('');
+
+      const watchList = m.sortedByLowest.slice(0, 3);
+      document.getElementById('aiAttentionList').innerHTML = watchList.map((p, idx) => `
+        <div class="${idx > 0 ? 'pl-5' : ''}">
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">${p.nama} (${p.kode})</div>
+          <div class="text-[13px] font-bold text-slate-800 mt-0.5">Stok akhir ${p.stokAkhir} unit</div>
+        </div>
+      `).join('');
+
+      renderBarLineChart('dashboardChartContainer', m.unifiedTrend);
+    }
+
+    function renderBarLineChart(containerId, data) {
+      const container = document.getElementById(containerId);
+      const width = 760;
+      const height = 275;
+      const pad = { top: 18, right: 20, bottom: 32, left: 54 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+
+      const rawMax = Math.max(...data.flatMap(d => [d.stock, d.demand, d.forecast]), 10);
+      const magnitude = Math.pow(10, Math.floor(Math.log10(rawMax)));
+      const maxY = Math.ceil((rawMax * 1.1) / magnitude) * magnitude;
+      const yTicks = [0, Math.round(maxY / 3), Math.round((maxY * 2) / 3), maxY];
+      const stepX = plotW / data.length;
+
+      const gridSvg = yTicks.map(val => {
+        const y = pad.top + plotH - (val / maxY) * plotH;
+        return `
+          <line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="#F1F5F9" stroke-width="1.2" />
+          <text x="${pad.left - 12}" y="${y + 4}" text-anchor="end" font-size="11" fill="#94A3B8" font-weight="500">${val.toLocaleString('en-US')}</text>
+        `;
+      }).join('');
+
+      let barsSvg = '';
+      let linePoints = [];
+      let markersSvg = '';
+      let labelsSvg = '';
+
+      data.forEach((d, i) => {
+        const centerX = pad.left + stepX * i + stepX / 2;
+        const barW = 16;
+        const gap = 4;
+
+        const h1 = (d.stock / maxY) * plotH;
+        const y1 = pad.top + plotH - h1;
+        const h2 = (d.demand / maxY) * plotH;
+        const y2 = pad.top + plotH - h2;
+        const fY = pad.top + plotH - (d.forecast / maxY) * plotH;
+        linePoints.push(`${centerX},${fY}`);
+
+        barsSvg += `
+          <g class="cursor-pointer"
+             onmousemove="showChartTooltip(event, '${d.day}', ${d.stock}, ${d.demand}, ${d.forecast})"
+             onmouseleave="hideChartTooltip()">
+            <rect class="svg-bar-animated" style="animation-delay: ${i * 55}ms" x="${centerX - barW - gap / 2}" y="${y1}" width="${barW}" height="${h1}" rx="4" fill="#BDD6FE" />
+            <rect class="svg-bar-animated" style="animation-delay: ${i * 55 + 80}ms" x="${centerX + gap / 2}" y="${y2}" width="${barW}" height="${h2}" rx="4" fill="#1D72FA" />
+            <rect x="${centerX - stepX / 2 + 4}" y="${pad.top}" width="${stepX - 8}" height="${plotH}" fill="transparent" />
+          </g>
+        `;
+
+        markersSvg += `<ellipse class="svg-marker-animated" style="animation-delay: ${250 + i * 55}ms" cx="${centerX}" cy="${fY}" rx="6.5" ry="3.2" fill="#FFFFFF" stroke="#0D2B4E" stroke-width="1.6" />`;
+        labelsSvg += `<text x="${centerX}" y="${height - 8}" text-anchor="middle" font-size="11.5" fill="#94A3B8" font-weight="500">${d.day}</text>`;
+      });
+
+      const lineSvg = `<polyline class="svg-line-animated" fill="none" stroke="#0D2B4E" stroke-width="1.75" points="${linePoints.join(' ')}" />`;
+
+      container.innerHTML = '';
+      void container.offsetWidth;
+      container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" class="w-full h-auto overflow-visible">
+          ${gridSvg}
+          ${barsSvg}
+          ${lineSvg}
+          ${markersSvg}
+          ${labelsSvg}
+        </svg>
+      `;
+    }
+
+    function showChartTooltip(e, day, stock, demand, forecast) {
+      const tip = document.getElementById('chartTooltip');
+      tip.innerHTML = `
+        <div class="font-bold mb-1">${day}</div>
+        <div class="flex items-center justify-between gap-4"><span class="text-blue-200">Stock:</span><span>${stock.toLocaleString()} unit</span></div>
+        <div class="flex items-center justify-between gap-4"><span class="text-blue-400">Demand:</span><span>${demand.toLocaleString()} unit</span></div>
+        <div class="flex items-center justify-between gap-4"><span class="text-slate-300">Forecast:</span><span>${forecast.toLocaleString()} unit</span></div>
+      `;
+      tip.style.left = `${e.clientX + 14}px`;
+      tip.style.top = `${e.clientY - 14}px`;
+      tip.classList.remove('hidden');
+    }
+
+    function hideChartTooltip() {
+      document.getElementById('chartTooltip').classList.add('hidden');
+    }
+
+    function populateCategoryFilter() {
+      const sel = document.getElementById('invCategoryFilter');
+      if (!sel) return;
+      const prev = sel.value || 'ALL';
+      const categories = [...new Set(inventoryRows.map(r => r.kategori))];
+      sel.innerHTML = `<option value="ALL">Semua kategori</option>` +
+        categories.map(c => `<option value="${c}">${c}</option>`).join('');
+      sel.value = categories.includes(prev) ? prev : 'ALL';
+    }
+
+    function renderInventoryTable() {
+      const q = (document.getElementById('invSearchInput')?.value || '').toLowerCase();
+      const clsFilter = document.getElementById('invClassFilter')?.value || 'ALL';
+      const catFilter = document.getElementById('invCategoryFilter')?.value || 'ALL';
+      const stFilter = document.getElementById('invStatusFilter')?.value || 'ALL';
+
+      const filtered = inventoryRows.filter(row => {
+        const matchSearch = row.kode.toLowerCase().includes(q) || row.nama.toLowerCase().includes(q) || row.kategori.toLowerCase().includes(q);
+        const matchCls = clsFilter === 'ALL' || row.klasifikasi === clsFilter;
+        const matchCat = catFilter === 'ALL' || row.kategori === catFilter;
+        const matchSt = stFilter === 'ALL' || row.stockout === stFilter;
+        return matchSearch && matchCls && matchCat && matchSt;
+      });
+
+      const tbody = document.getElementById('inventoryTableBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" class="py-10 text-center text-slate-400">Tidak ada barang yang sesuai filter pencarian.</td></tr>`;
+      } else {
+        tbody.innerHTML = filtered.map(r => {
+          const stockoutBadge = r.stockout === 'Tidak Stockout'
+            ? `<span class="inline-flex px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 border border-emerald-200/80 text-emerald-700 whitespace-nowrap">Tidak Stockout</span>`
+            : r.stockout === 'Hampir Stockout'
+            ? `<span class="inline-flex px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-50 border border-amber-200/80 text-amber-700 whitespace-nowrap">Hampir Stockout</span>`
+            : `<span class="inline-flex px-3 py-1 rounded-full text-[11px] font-semibold bg-rose-50 border border-rose-200 text-rose-700 whitespace-nowrap">Stockout</span>`;
+
+          const classBadge = r.klasifikasi === 'Fast Moving'
+            ? `<span class="inline-flex px-3 py-1 rounded-full text-[11px] font-semibold bg-indigo-50 border border-indigo-200/70 text-indigo-600 whitespace-nowrap">Fast Moving</span>`
+            : r.klasifikasi === 'Overstock'
+            ? `<span class="inline-flex px-3 py-1 rounded-full text-[11px] font-semibold bg-sky-50 border border-sky-200/70 text-sky-700 whitespace-nowrap">Overstock</span>`
+            : `<span class="inline-flex px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-100 border border-slate-200 text-slate-600 whitespace-nowrap">Slow Moving</span>`;
+
+          return `
+            <tr class="hover:bg-slate-50/70 transition cursor-pointer" onclick="jumpToProductById(${r.id})">
+              <td class="py-3.5 px-5 text-center">${stockoutBadge}</td>
+              <td class="py-3.5 px-4 text-center">${classBadge}</td>
+              <td class="py-3.5 px-4 text-slate-600 font-medium">${r.kategori}</td>
+              <td class="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap">${r.kode}</td>
+              <td class="py-3.5 px-4 text-slate-700 font-medium">${r.nama}</td>
+              <td class="py-3.5 px-3 text-slate-500">${r.unit}</td>
+              <td class="py-3.5 px-3 text-right text-slate-600">${r.stokAwal}</td>
+              <td class="py-3.5 px-3 text-right text-slate-600">${r.keluar}</td>
+              <td class="py-3.5 px-3 text-right text-slate-600">${r.penjualan}</td>
+              <td class="py-3.5 px-3 text-right text-slate-600">${r.masuk}</td>
+              <td class="py-3.5 px-5 text-right font-bold text-slate-900">${r.stokAkhir}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      const sumStock = filtered.reduce((s, r) => s + r.stokAkhir, 0);
+      document.getElementById('inventoryRowSummary').textContent = `Menampilkan ${filtered.length} dari ${inventoryRows.length} SKU • Total Stok Akhir: ${sumStock.toLocaleString('en-US')} unit`;
+    }
+
+    function populateForecastDropdown() {
+      const m = getUnifiedMetrics();
+      const sel = document.getElementById('forecastProductSelect');
+      const prevVal = sel.value;
+
+      const allOption = `<option value="ALL">Semua Produk — ${m.totalSku} SKU (Selaras Dashboard • ${m.totalStockQty.toLocaleString('en-US')} unit)</option>`;
+      const itemOptions = inventoryRows.map(r =>
+        `<option value="${r.id}">${r.nama} — ${r.kode} (${r.stokAkhir} unit)</option>`
+      ).join('');
+
+      sel.innerHTML = allOption + itemOptions;
+      if (prevVal === 'ALL' || (prevVal && inventoryRows[Number(prevVal)])) {
+        sel.value = prevVal;
+      } else {
+        sel.value = 'ALL';
+      }
+    }
+
+    function jumpToProductById(id) {
+      document.getElementById('forecastProductSelect').value = String(id);
+      navigateTo('forecasting');
+    }
+
+    function jumpToProductForecast(code, name) {
+      const found = inventoryRows.find(r => r.kode === code && (!name || r.nama === name)) || inventoryRows[0];
+      jumpToProductById(found.id);
+    }
+
+    function renderForecastingView(withToast = false) {
+      const m = getUnifiedMetrics();
+      const selectedVal = document.getElementById('forecastProductSelect').value || 'ALL';
+      const period = Number(document.getElementById('forecastPeriodSelect').value) || 30;
+      const periodFactor = period / 30;
+
+      renderBarLineChart('forecastChartContainer', m.unifiedTrend);
+
+      if (selectedVal === 'ALL') {
+        const forecastQty = Math.round(m.dummyForecast * periodFactor);
+        const orderUnits = m.totalSuggestedUnits;
+        const orderVal = orderUnits * 85000;
+
+        document.getElementById('fcConfidence').textContent = `94% confidence • Safety Stock 100% Aman`;
+        document.getElementById('fcActionTitle').textContent = `Order ${orderUnits.toLocaleString('en-US')} unit`;
+        document.getElementById('fcActionNote').textContent =
+          `${m.recommendedProductCount} products direkomendasikan untuk replenishment optimal (total ${orderUnits.toLocaleString('en-US')} unit) dari total ${m.totalStockQty.toLocaleString('en-US')} unit yang tersedia di inventori.`;
+
+        document.getElementById('fcCurrentStock').textContent = `${m.totalStockQty.toLocaleString('en-US')} unit`;
+        document.getElementById('fcPeriodLabel').textContent = `${period}-day forecast`;
+        document.getElementById('fcPeriodForecast').textContent = `${forecastQty.toLocaleString('en-US')} unit`;
+        document.getElementById('fcStockoutDate').textContent = `0 Risk (Aman)`;
+        document.getElementById('fcOrderValue').textContent = `Rp ${orderVal.toLocaleString('id-ID')}`;
+
+        document.getElementById('paramCurrentStock').textContent = m.totalStockQty.toLocaleString('en-US');
+        document.getElementById('paramLeadTime').textContent = 7;
+        document.getElementById('paramSafetyStock').textContent = m.totalSafetyStock.toLocaleString('en-US');
+        document.getElementById('paramReorderPoint').textContent = m.totalReorderPoint.toLocaleString('en-US');
+        document.getElementById('paramSuggestedOrder').textContent = orderUnits.toLocaleString('en-US');
+
+        if (withToast) {
+          showToast(`Filter diterapkan: Semua Produk (${m.totalSku} SKU) — ${period} hari.`);
+        }
+      } else {
+        const p = inventoryRows[Number(selectedVal)] || inventoryRows[0];
+        const skuDemandForecast = Math.round(Math.max(12, p.keluar * 1.1) * periodFactor);
+        const orderUnits = p.suggestedOrder;
+        const orderVal = orderUnits * p.unitPriceRp;
+
+        document.getElementById('fcConfidence').textContent = `94% confidence • Safety Stock Aman`;
+        document.getElementById('fcActionTitle').textContent = `Order ${orderUnits} unit`;
+        document.getElementById('fcActionNote').textContent = orderUnits > 0
+          ? `${p.nama} (${p.kode}) termasuk dalam ${m.recommendedProductCount} Recommended Orders. Pemesanan ${orderUnits} unit menjaga safety stock (${p.safetyStock} unit) tetap aman selama lead time ${p.leadTime} hari.`
+          : `${p.nama} (${p.kode}) memiliki stok ${p.stokAkhir} unit di atas safety stock (${p.safetyStock} unit). Tidak perlu order tambahan saat ini.`;
+
+        document.getElementById('fcCurrentStock').textContent = `${p.stokAkhir} unit`;
+        document.getElementById('fcPeriodLabel').textContent = `${period}-day forecast`;
+        document.getElementById('fcPeriodForecast').textContent = `${skuDemandForecast} unit`;
+        document.getElementById('fcStockoutDate').textContent = `0 Risk (Aman)`;
+        document.getElementById('fcOrderValue').textContent = `Rp ${orderVal.toLocaleString('id-ID')}`;
+
+        document.getElementById('paramCurrentStock').textContent = p.stokAkhir;
+        document.getElementById('paramLeadTime').textContent = p.leadTime;
+        document.getElementById('paramSafetyStock').textContent = p.safetyStock;
+        document.getElementById('paramReorderPoint').textContent = p.reorderPoint;
+        document.getElementById('paramSuggestedOrder').textContent = orderUnits;
+
+        if (withToast) {
+          showToast(`Filter diterapkan untuk ${p.nama} (${p.kode}) — ${period} hari.`);
+        }
+      }
+    }
+
+    function regenerateForecast() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('fcTimestamp').textContent = `Forecast generated today at ${hh}:${mm}`;
+      renderForecastingView();
+      showToast('Forecast & rekomendasi diperbarui dan disinkronkan.');
+    }
+
+    function openEditParamsModal() {
+      const selectedVal = document.getElementById('forecastProductSelect').value || 'ALL';
+      if (selectedVal === 'ALL') {
+        const m = getUnifiedMetrics();
+        document.getElementById('inputLeadTime').value = 7;
+        document.getElementById('inputSafetyStock').value = m.totalSafetyStock;
+        document.getElementById('inputReorderPoint').value = m.totalReorderPoint;
+        document.getElementById('inputSuggestedOrder').value = m.totalSuggestedUnits;
+      } else {
+        const p = inventoryRows[Number(selectedVal)];
+        document.getElementById('inputLeadTime').value = p.leadTime;
+        document.getElementById('inputSafetyStock').value = p.safetyStock;
+        document.getElementById('inputReorderPoint').value = p.reorderPoint;
+        document.getElementById('inputSuggestedOrder').value = p.suggestedOrder;
+      }
+      document.getElementById('editParamsModal').classList.remove('hidden');
+    }
+
+    function saveEditedParams() {
+      const selectedVal = document.getElementById('forecastProductSelect').value || 'ALL';
+      if (selectedVal === 'ALL') {
+        showToast('Pilih salah satu SKU spesifik untuk mengubah parameter per item (Lead time tetap 7 hari).');
+        closeModal('editParamsModal');
+        return;
+      }
+      const p = inventoryRows[Number(selectedVal)];
+      p.leadTime = Number(document.getElementById('inputLeadTime').value) || 7;
+      p.safetyStock = Number(document.getElementById('inputSafetyStock').value) || p.safetyStock;
+      p.reorderPoint = Number(document.getElementById('inputReorderPoint').value) || p.reorderPoint;
+      p.suggestedOrder = Math.max(0, Number(document.getElementById('inputSuggestedOrder').value) || 0);
+      closeModal('editParamsModal');
+      syncAllViews();
+      showToast(`Parameter untuk ${p.nama} (${p.kode}) disimpan & disinkronkan ke Dashboard.`);
+    }
+
+    function openPOModal() {
+      const m = getUnifiedMetrics();
+      const selectedVal = document.getElementById('forecastProductSelect').value || 'ALL';
+
+      if (selectedVal === 'ALL') {
+        document.getElementById('poSkuCode').value = `${m.recommendedProductCount} SKU (${m.priorityItem.kode} & lainnya)`;
+        document.getElementById('poQty').value = m.totalSuggestedUnits;
+      } else {
+        const p = inventoryRows[Number(selectedVal)] || inventoryRows[0];
+        const defaultQty = p.suggestedOrder > 0 ? p.suggestedOrder : Math.max(12, Math.ceil((p.keluar || 12) / 12) * 12);
+        document.getElementById('poSkuCode').value = p.kode;
+        document.getElementById('poQty').value = defaultQty;
+      }
+
+      document.getElementById('poSupplier').value = 'PT Nippon Paint Indonesia';
+      document.getElementById('poNotes').value = 'Order pengisian stok berkala periode review R=6 hari.';
+      document.getElementById('poModal').classList.remove('hidden');
+    }
+
+    function submitPurchaseOrder() {
+      const sku = document.getElementById('poSkuCode').value.trim();
+      const supplier = document.getElementById('poSupplier').value.trim() || 'PT Nippon Paint Indonesia';
+      const qty = Number(document.getElementById('poQty').value) || 12;
+      closeModal('poModal');
+      showToast(`Purchase Order #PO-2026-108 untuk ${qty} unit (${sku}) ke ${supplier} berhasil diterbitkan!`);
+    }
+
+    function renderReports() {
+      const m = getUnifiedMetrics();
+      const pct = val => m.totalSku > 0 ? ((val / m.totalSku) * 100).toFixed(1) : '0.0';
+
+      document.getElementById('repHealthyLabel').textContent = `${m.healthyCount} SKU (${pct(m.healthyCount)}%)`;
+      document.getElementById('repHealthyBar').style.width = `${pct(m.healthyCount)}%`;
+
+      document.getElementById('repWarningLabel').textContent = `${m.warningCount} SKU (${pct(m.warningCount)}%)`;
+      document.getElementById('repWarningBar').style.width = `${pct(m.warningCount)}%`;
+
+      document.getElementById('repCriticalLabel').textContent = `${m.criticalCount} SKU (${pct(m.criticalCount)}%)`;
+      document.getElementById('repCriticalBar').style.width = `${pct(m.criticalCount)}%`;
+
+      document.getElementById('repTotalSku').textContent = `${m.totalSku} item`;
+      document.getElementById('repTotalQty').textContent = `${m.totalStockQty.toLocaleString('en-US')} unit`;
+      document.getElementById('repRiskSku').textContent = `${m.riskCount} SKU`;
+
+      document.getElementById('repLostCount').textContent = `${m.lostSalesCount} produk`;
+      document.getElementById('repLostValue').textContent = `Rp ${m.lostSalesValue.toLocaleString('id-ID')}`;
+      document.getElementById('repPriorityName').textContent = m.priorityItem.nama;
+      document.getElementById('repPriorityQty').textContent = `${m.priorityItem.stokAkhir} unit tersisa`;
+      document.getElementById('repSafetyPct').textContent = `${m.safetyPct}% SKU aman`;
+      document.getElementById('repSafetyAttention').textContent = `${m.riskCount} SKU perlu perhatian`;
+    }
+
+    function triggerDownload(filename, content) {
+      const csvWithBom = '\uFEFF' + content;
+      const dataUrl = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvWithBom);
+
+      const directLink = document.getElementById('csvDirectDownloadLink');
+      directLink.href = dataUrl;
+      directLink.setAttribute('download', filename);
+      document.getElementById('csvExportModalTitle').textContent = filename;
+      document.getElementById('csvExportTextarea').value = content;
+
+      try {
+        const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.setAttribute('download', filename);
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          if (a.parentNode) document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 1500);
+      } catch (e) {
+        document.getElementById('csvExportModal').classList.remove('hidden');
+      }
+    }
+
+    function copyCsvExportText() {
+      const ta = document.getElementById('csvExportTextarea');
+      ta.select();
+      document.execCommand('copy');
+      showToast('Data CSV disalin ke clipboard.');
+    }
+
+    function downloadTemplateCSV() {
+      triggerDownload('template-inventory-108sku.csv', rawCsvData);
+      showToast('Template CSV (108 SKU) berhasil diunduh.');
+    }
+
+    function exportDashboardCSV() {
+      const header = 'Kategori Barang,Kode Barang,Nama Barang,Unit,Stok Awal,Keluar,Penjualan,Masuk,Stok Akhir,Stockout,Klasifikasi\n';
+      const body = inventoryRows.map(r =>
+        [r.kategori, r.kode, r.nama, r.unit, r.stokAwal, r.keluar, r.penjualan, r.masuk, r.stokAkhir, r.stockout, r.klasifikasi].join(',')
+      ).join('\n');
+      triggerDownload('laporan-inventory-108sku-pt-rjs.csv', header + body);
+      showToast('Laporan CSV berhasil diekspor.');
+    }
+
+    function openUploadModal() { document.getElementById('uploadModal').classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    function handleCSVUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const parsed = parseCsvToRows(e.target.result);
+        if (parsed.length > 0) {
+          inventoryRows = parsed;
+          document.getElementById('activeDatasetLabel').textContent = file.name;
+          document.getElementById('repSource').textContent = file.name;
+          syncAllViews();
+          closeModal('uploadModal');
+          showToast(`Berhasil memuat ${parsed.length} SKU dari ${file.name}`);
+        } else {
+          showToast('Format CSV tidak valid.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    document.getElementById('globalSearchInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('invSearchInput').value = e.target.value;
+        renderInventoryTable();
+        navigateTo('inventory');
+      }
+    });
+
+    function toggleNotificationMenu(forceState) {
+      const menu = document.getElementById('notificationDropdown');
+      const open = typeof forceState === 'boolean' ? forceState : menu.classList.contains('hidden');
+      menu.classList.toggle('hidden', !open);
+    }
+
+    let toastTimer;
+    function showToast(msg) {
+      const box = document.getElementById('toastBox');
+      document.getElementById('toastMessage').textContent = msg;
+      box.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => box.classList.add('hidden'), 3200);
+    }
+
+    function syncAllViews() {
+      populateCategoryFilter();
+      populateForecastDropdown();
+      renderDashboard();
+      renderInventoryTable();
+      renderForecastingView();
+      renderReports();
+    }
+
+    handleResize();
+    syncAllViews();
+    navigateTo('dashboard');
+  </script>
+</body>
+</html>
